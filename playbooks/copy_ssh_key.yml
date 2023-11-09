@@ -1,0 +1,37 @@
+---
+- name: Copy SSH public key from GitHub to authorized_keys
+  hosts: your_remote_server
+  become: yes
+
+  vars:
+    remote_user: ross
+    github_user: rosslopez
+
+  tasks:
+    - name: Ensure the user account exists
+      user:
+        name: "{{ remote_user }}"
+        state: present
+        create_home: yes
+
+    - name: Fetch SSH public key from GitHub
+      uri:
+        url: "https://github.com/{{ github_user }}.keys"
+        return_content: yes
+      register: github_key
+
+    - name: Ensure .ssh directory exists for the user
+      become_user: "{{ remote_user }}"
+      file:
+        path: "/home/{{ remote_user }}/.ssh"
+        state: directory
+        mode: "0700"
+
+    - name: Add GitHub SSH public key to authorized_keys
+      become_user: "{{ remote_user }}"
+      lineinfile:
+        path: "/home/{{ remote_user }}/.ssh/authorized_keys"
+        line: "{{ github_key.content }}"
+        create: yes
+        state: present
+        mode: "0600"
