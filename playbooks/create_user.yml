@@ -1,6 +1,6 @@
 ---
 - name: Copy SSH public key from GitHub to authorized_keys
-  hosts: your_remote_server
+  hosts: all
   become: yes
 
   vars:
@@ -8,11 +8,34 @@
     github_user: rosslopez
 
   tasks:
+    - name: Install zsh
+      apt:
+        name: zsh
+        state: present
+
+    - name: Install git
+      apt:
+        name: git
+        state: present
+
+    - name: Install Oh My Zsh for the user
+      become_user: "{{ remote_user }}"
+      shell: >
+        sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+      args:
+        executable: /bin/bash
+      environment:
+        RUNZSH: 'no'
+        CHSH: 'no'
+      become: yes
+      when: ansible_os_family == 'Debian' or ansible_os_family == 'RedHat'
+    
     - name: Ensure the user account exists
       user:
         name: "{{ remote_user }}"
         state: present
         create_home: yes
+        shell: /bin/zsh
 
     - name: Fetch SSH public key from GitHub
       uri:
@@ -35,3 +58,11 @@
         create: yes
         state: present
         mode: "0600"
+
+    - name: Ensure 'ross' has sudo privileges
+      lineinfile:
+        path: "/etc/sudoers.d/90-ross"
+        line: "ross ALL=(ALL) NOPASSWD:ALL"
+        state: present
+        create: yes
+        validate: 'visudo -cf %s'
